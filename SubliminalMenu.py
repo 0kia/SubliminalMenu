@@ -10,6 +10,10 @@ from time import sleep
 import sv_ttk
 from threading import Thread
 import psutil
+
+#---------------------------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------------------------
+
 class Startup():
     def __init__(self, window_title, width, height):
         #create window
@@ -82,6 +86,19 @@ Gworld=aob_address+aob_offset
 #toggle trackers
 noClip = False
 
+startup.text("Finding Viewmode...")
+startup.update()
+viewmode_address = pymem.pattern.pattern_scan_all(mem.process_handle,b"\x07\x17\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00")
+viewmode_address = viewmode_address + 0x8
+
+print(viewmode_address)
+if not viewmode_address:
+    startup.text("ViewMode Not Found...")
+    startup.update()
+    sleep(2)
+    startup.close()
+    exit()
+
 startup.text("Building offsets...")
 startup.update()
 sleep(0.5)
@@ -112,6 +129,10 @@ startup.text("Done!")
 startup.update()
 sleep(1)
 startup.close()
+
+#---------------------------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------------------------
+
 class ModMenu():
     def __init__(self, window_title, width, height):
         #create window
@@ -139,6 +160,9 @@ class ModMenu():
 
         self.cameraRoll_btn = ttk.Button(self.win, text="Toggle NoClip", command=self.noClip_hack)
         self.cameraRoll_btn.place(x=10,y=184)
+
+        self.cameraRoll_btn = ttk.Button(self.win, text="Toggle Unlit", command=self.unlit_toggle)
+        self.cameraRoll_btn.place(x=10,y=224)
 
         self.walkSpeed = ttk.Label(self.win, text = "Walk Speed:", font=('Calibri',12))
         self.walkSpeed.place(x=10,y=113)
@@ -170,9 +194,6 @@ class ModMenu():
             mem.write_float(cameraShakeAddr, float(0))
         else:
             mem.write_float(cameraShakeAddr, float(0.1))
-
-
-
 
     def cameraRoll_hack(self):
         if(mem.read_bool(cameraRollAddr)):
@@ -218,7 +239,11 @@ class ModMenu():
             mem.write_bool(canJumpAddr,True)
             mem.write_bytes(collisionAddr, b'\x03',1)
             mem.write_bytes(movementModeAddr, b'\x01',1)
-
+    def unlit_toggle(self):
+        if mem.read_bytes(viewmode_address,1) == b'\x03':
+            mem.write_bytes(viewmode_address, b'\x02',1)
+        else:
+            mem.write_bytes(viewmode_address, b'\x03',1)
 
     def center(self, width, height):
         swidth = self.win.winfo_screenwidth()
@@ -248,8 +273,6 @@ def keybinds(modmenu):
             elif kb.is_pressed("shift"):
                 mem.write_double(playerzAddr, float(mem.read_double(playerzAddr) - 50))
                 #mem.write_double(camerazAddr, float(mem.read_double(camerazAddr) - 50))
-
-
 
 
 modmenu = ModMenu("Subliminal Menu", 450, 300)
