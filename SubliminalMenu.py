@@ -21,7 +21,7 @@ class Startup():
         self.win.wm_attributes("-alpha", 1)
         sv_ttk.set_theme("dark")
 
-        self.title_label = ttk.Label(self.win, text=window_title, font=('Calibri Bold',12))
+        self.title_label = ttk.Label(self.win, text=window_title, font=('Calibri Bold',16))
         self.title_label.pack()
 
     def center(self, width, height):
@@ -37,7 +37,7 @@ class Startup():
     def text(self,input):
         self.title_label.config(text=input)
 
-startup = Startup("Finding Subliminal", 200, 100)
+startup = Startup("Finding Subliminal", 250, 30)
 startup.text("Finding Subliminal...")
 startup.update()
 
@@ -51,7 +51,7 @@ for process in processes:
 if not subliminal:
     startup.text("Game Not Found...")
     startup.update()
-    sleep(1)
+    sleep(2)
     startup.close()
     exit()
     
@@ -66,9 +66,9 @@ startup.update()
 aob_address = pymem.pattern.pattern_scan_all(mem.process_handle,b"\x48\x8B\x05....\x8b\x0e\x4c\x8b\xa0....\x85\xc9\x74.")
 
 if not aob_address:
-    startup.text("AOB Scan Failed...")
+    startup.text("Gworld Not Found...")
     startup.update()
-    sleep(0.5)
+    sleep(2)
     startup.close()
     exit()
 
@@ -82,6 +82,10 @@ Gworld=aob_address+aob_offset
 #toggle trackers
 noClip = False
 
+startup.text("Building offsets...")
+startup.update()
+sleep(0.5)
+
 def getPointerAddr(base, offsets):
     addr = mem.read_longlong(base)
     for offset in offsets:
@@ -90,8 +94,6 @@ def getPointerAddr(base, offsets):
     addr = addr + offsets[-1]
     return addr
 
-startup.text("Building offsets...")
-startup.update()
 # calculate addresses on launch. performance improvement
 cameraShakeAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0xCFC])
 cameraRollAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0xB90])
@@ -108,6 +110,7 @@ verticalaccellAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x33
 
 startup.text("Done!")
 startup.update()
+sleep(1)
 startup.close()
 class ModMenu():
     def __init__(self, window_title, width, height):
