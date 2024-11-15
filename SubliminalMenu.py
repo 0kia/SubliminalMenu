@@ -41,6 +41,34 @@ class Startup():
     def text(self,input):
         self.title_label.config(text=input)
 
+class VerticalVelocity():
+    def __init__(self, window_title, width, height):
+        #create window
+        self.win = Tk()
+        xcoord, ycoord = self.center(width, height)
+        self.win.geometry(f"{width}x{height}+{xcoord}+{ycoord}")
+        self.win.overrideredirect(True)
+        self.win.wm_attributes("-topmost", 1)
+        self.win.wm_attributes("-alpha", 1)
+        sv_ttk.set_theme("dark")
+
+        self.title_label = ttk.Label(self.win, text=window_title, font=('Calibri Bold',12))
+        self.title_label.pack()
+
+    def center(self, width, height):
+        swidth = self.win.winfo_screenwidth()
+        sheight = self.win.winfo_screenheight()
+        xcoord = (swidth/2) - (width/2)
+        ycoord = (sheight/2) - (height/2)
+        return int(xcoord), int(ycoord)
+    def update(self):
+        self.win.update()
+    def close(self):
+        self.win.destroy()
+    def text(self,input):
+        self.title_label.config(text=input)
+
+
 startup = Startup("Finding Subliminal", 250, 30)
 startup.text("Finding Subliminal...")
 startup.update()
@@ -59,15 +87,15 @@ if not subliminal:
     startup.close()
     exit()
     
-#process hook
+#process hook + find module 'Subliminal.exe'
 mem = Pymem(subliminal)
-module = module_from_name(mem.process_handle, "Subliminal.exe").lpBaseOfDll
+module = module_from_name(mem.process_handle, "Subliminal.exe")
 #Gworld mov rax,[7FF79442C620]
 
 startup.text("Finding Gworld...")
 startup.update()
 
-aob_address = pymem.pattern.pattern_scan_all(mem.process_handle,b"\x48\x8B\x05....\x8b\x0e\x4c\x8b\xa0....\x85\xc9\x74.")
+aob_address = pymem.pattern.pattern_scan_module(mem.process_handle,module,b"\x90\xCC\x48\x8B\x05....\x8b\x0e\x4c\x8b\xa0....\x85\xc9\x74.") +0x2
 
 if not aob_address:
     startup.text("Gworld Not Found...")
@@ -78,13 +106,9 @@ if not aob_address:
 
 #print(aob_address)
 aob_offset = mem.read_int(aob_address + 0x3) + 0x7 #0x3 to index to the 4 bytes where the offest from Subliminal.exe is "...." and then 4 more bytes for end fo instruction
+print(aob_offset)
 Gworld=aob_address+aob_offset
 #print(Gworld)
-#Gworld = module + 0x1181C620
-#offsets
-
-#toggle trackers
-noClip = False
 
 startup.text("Finding Viewmode...")
 startup.update()
@@ -125,9 +149,9 @@ movementModeAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x330,
 collisionAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x338, 0x370])
 verticalaccellAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x330, 0x358])
 
-startup.text("Done!")
-startup.update()
-sleep(1)
+#toggle trackers
+noClip = False
+
 startup.close()
 
 #---------------------------------------------------------------------------------------------------------------------------------
@@ -137,8 +161,8 @@ class ModMenu():
     def __init__(self, window_title, width, height):
         #create window
         self.win = Tk()
-        xcoord, ycoord = self.center(width, height)
-        self.win.geometry(f"{width}x{height}+{xcoord}+{ycoord}")
+        self.xcoord, self.ycoord = self.center(width, height)
+        self.win.geometry(f"{width}x{height}+{self.xcoord}+{self.ycoord}")
         self.win.overrideredirect(True)
         self.win.withdraw()
         self.win.wm_attributes("-topmost", 1)
@@ -221,17 +245,30 @@ class ModMenu():
 
     def noClip_hack(self):
         global noClip
+        Vert = False
         if (mem.read_float(gravityScaleAddr) > 0):
             noClip = True
             mem.write_float(walkSpeedAddr, float(1000))
             mem.write_bool(canJumpAddr,False)
             mem.write_bytes(collisionAddr, b'\x00',1)
             mem.write_bytes(movementModeAddr, b'\x04',1)
+            
+            #handle giant vertical velocity
+            if(mem.read_double(verticalaccellAddr) < -100):
+                Vert = True
+                handle = VerticalVelocity("offsetting your giant vertical velocity...",300,25)
+                handle.update()
+                mem.write_float(gravityScaleAddr, float(-2))
+                while(mem.read_double(verticalaccellAddr) < -50):
+                    pass
+
             mem.write_float(gravityScaleAddr, float(-0.025))
             sleep(0.1)
             while(mem.read_double(verticalaccellAddr) < -0.2):
                 pass
             mem.write_float(gravityScaleAddr, float(0))
+            if Vert:
+                handle.close()
         else:
             noClip = False
             mem.write_float(walkSpeedAddr, float(self.enter_speed.get()))
@@ -239,6 +276,8 @@ class ModMenu():
             mem.write_bool(canJumpAddr,True)
             mem.write_bytes(collisionAddr, b'\x03',1)
             mem.write_bytes(movementModeAddr, b'\x01',1)
+        
+
     def unlit_toggle(self):
         if mem.read_bytes(viewmode_address,1) == b'\x03':
             mem.write_bytes(viewmode_address, b'\x02',1)
