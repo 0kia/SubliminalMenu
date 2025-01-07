@@ -3,14 +3,13 @@ from tkinter import ttk
 from tokenize import Double
 from pymem import *
 from pymem.process import *
-from settings import *
 import keyboard as kb
 from threading import Thread
 from time import sleep
 import sv_ttk
 from threading import Thread
 import psutil
-
+from sys import exit
 #---------------------------------------------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------------------------------------------
 
@@ -77,8 +76,10 @@ startup.update()
 subliminal = None
 processes = psutil.process_iter()
 for process in processes:
-    if process.name() == "Subliminal.exe" and process.memory_info().vms > 5000000:
+    if "Subliminal" in process.name() and process.memory_info().vms > 5000000:
         subliminal = process.pid
+        break
+
 
 if not subliminal:
     startup.text("Game Not Found...")
@@ -87,20 +88,20 @@ if not subliminal:
     startup.close()
     exit()
     
-#process hook + find module 'Subliminal.exe'
+#process hook + find exe module
 mem = Pymem(subliminal)
-module = module_from_name(mem.process_handle, "Subliminal.exe")
+module = module_from_name(mem.process_handle, str(process.name()))
 #Gworld mov rax,[7FF79442C620]
 
 startup.text("Finding Gworld...")
 startup.update()
 
-aob_address = pymem.pattern.pattern_scan_module(mem.process_handle,module,b"\x90\xCC\x48\x8B\x05....\x8b\x0e\x4c\x8b\xa0....\x85\xc9\x74.") +0x2
+aob_address = pymem.pattern.pattern_scan_module(mem.process_handle,module, b"\x48\x8b\x05....\x48\x85\xc0\x75.\x48\x83\xc4.")
 
 if not aob_address:
     startup.text("Gworld Not Found...")
     startup.update()
-    sleep(2)
+    sleep(1)
     startup.close()
     exit()
 
@@ -112,20 +113,19 @@ Gworld=aob_address+aob_offset
 
 startup.text("Finding Viewmode...")
 startup.update()
-viewmode_address = pymem.pattern.pattern_scan_all(mem.process_handle,b"\x07\x17\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00")
-viewmode_address = viewmode_address + 0x8
+viewmode_address = pymem.pattern.pattern_scan_all(mem.process_handle,b"\x05....\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\xFF\x0F")
+viewmode_address = viewmode_address + 0x7
 
 print(viewmode_address)
 if not viewmode_address:
     startup.text("ViewMode Not Found...")
     startup.update()
-    sleep(2)
+    sleep(1)
     startup.close()
     exit()
 
 startup.text("Building offsets...")
 startup.update()
-sleep(0.5)
 
 def getPointerAddr(base, offsets):
     addr = mem.read_longlong(base)
@@ -136,18 +136,18 @@ def getPointerAddr(base, offsets):
     return addr
 
 # calculate addresses on launch. performance improvement
-cameraShakeAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0xCFC])
-cameraRollAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0xB90])
-walkSpeedAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x950])
-sprintSpeedAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x944])
-
-gravityScaleAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x330, 0x170])
-playerzAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x338,0x200])
-#camerazAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x350, 0x2A0,0x270])
-canJumpAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x8F8])
-movementModeAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x330, 0x201])
-collisionAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x338, 0x370])
-verticalaccellAddr = getPointerAddr(Gworld, [0x1E0, 0x38, 0x0, 0x30, 0x300, 0x330, 0x358])
+cameraShakeAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0xC8C])
+cameraRollAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0xB20])
+walkSpeedAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x900])
+sprintSpeedAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x8F4])
+    #used for noclip
+gravityScaleAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x320, 0x170])
+playerzAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x328,0x200]) #CapsuleComponent -> somewhere around 200 will be the real cooridanates
+canJumpAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x8B0])
+canMoveAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x7EC])
+movementModeAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x320, 0x201]) #Emovementmode
+collisionAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x328, 0x368]) #Acharacter ? -> CapsuleComponent -> Fbodyinstance
+verticalaccellAddr = getPointerAddr(Gworld, [0x1D8, 0x38, 0x0, 0x30, 0x2E0, 0x320, 0x358]) #CharacterMovementComponent -> LastUpdateVelocity.z
 
 #toggle trackers
 noClip = False
@@ -251,6 +251,7 @@ class ModMenu():
             mem.write_float(walkSpeedAddr, float(1000))
             mem.write_bool(canJumpAddr,False)
             mem.write_bytes(collisionAddr, b'\x00',1)
+            mem.write_bytes(canMoveAddr, b'\x01',1)
             mem.write_bytes(movementModeAddr, b'\x04',1)
             
             #handle giant vertical velocity
